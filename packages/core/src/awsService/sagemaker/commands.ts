@@ -133,8 +133,13 @@ export async function deeplinkConnect(
 
     try {
         let connectionType = 'sm_dl'
+        let region: string | undefined
+        let clusterName: string | undefined
         if (!domain && eksClusterArn && workspaceName && namespace) {
-            const { accountId, region, clusterName } = parseArn(eksClusterArn)
+            const parsed = parseArn(eksClusterArn)
+            const accountId = parsed.accountId
+            region = parsed.region
+            clusterName = parsed.clusterName
             connectionType = 'sm_hp'
             const proposedSession = `${workspaceName}_${namespace}_${clusterName}_${region}_${accountId}`
             session = isValidSshHostname(proposedSession)
@@ -153,8 +158,10 @@ export async function deeplinkConnect(
             domain,
             appType,
             workspaceName,
-            undefined,
-            namespace
+            clusterName,
+            namespace,
+            region,
+            eksClusterArn
         )
 
         try {
