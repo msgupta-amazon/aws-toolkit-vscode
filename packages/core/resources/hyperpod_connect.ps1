@@ -18,38 +18,39 @@ function Write-Log {
     "$timestamp $Message" | Out-File -FilePath $LogFileLocation -Append -Encoding utf8
 }
 
-function Get-FreshCredentials {
-    param([string]$ConnectionKey)
-    
-    Write-Log "Getting fresh credentials for connection key: $ConnectionKey"
-    
-    # Read server info to get port
-    $serverInfoFile = "$env:APPDATA\Code\User\globalStorage\amazonwebservices.aws-toolkit-vscode\sagemaker-local-server-info.json"
-    if (-not (Test-Path $serverInfoFile)) {
-        Write-Log "Error: Server info file not found: $serverInfoFile"
-        exit 1
-    }
-    
-    $serverInfo = Get-Content $serverInfoFile | ConvertFrom-Json
-    $port = $serverInfo.port
-    
-    if (-not $port) {
-        Write-Log "Error: Could not extract port from server info file"
-        exit 1
-    }
-    
-    # Call API to get fresh credentials
-    $apiUrl = "http://localhost:$port/get_hyperpod_session?connection_key=$ConnectionKey"
-    
-    try {
-        $response = Invoke-RestMethod -Uri $apiUrl -Method Get
-        Write-Log "Fresh credentials obtained from API"
-        return $response
-    } catch {
-        Write-Log "Error: Failed to get credentials from API: $_"
-        exit 1
-    }
-}
+# Get-FreshCredentials - commented out, depended on get_hyperpod_session API
+# function Get-FreshCredentials {
+#     param([string]$ConnectionKey)
+#     
+#     Write-Log "Getting fresh credentials for connection key: $ConnectionKey"
+#     
+#     # Read server info to get port
+#     $serverInfoFile = "$env:APPDATA\Code\User\globalStorage\amazonwebservices.aws-toolkit-vscode\sagemaker-local-server-info.json"
+#     if (-not (Test-Path $serverInfoFile)) {
+#         Write-Log "Error: Server info file not found: $serverInfoFile"
+#         exit 1
+#     }
+#     
+#     $serverInfo = Get-Content $serverInfoFile | ConvertFrom-Json
+#     $port = $serverInfo.port
+#     
+#     if (-not $port) {
+#         Write-Log "Error: Could not extract port from server info file"
+#         exit 1
+#     }
+#     
+#     # Call API to get fresh credentials
+#     $apiUrl = "http://localhost:$port/get_hyperpod_session?connection_key=$ConnectionKey"
+#     
+#     try {
+#         $response = Invoke-RestMethod -Uri $apiUrl -Method Get
+#         Write-Log "Fresh credentials obtained from API"
+#         return $response
+#     } catch {
+#         Write-Log "Error: Failed to get credentials from API: $_"
+#         exit 1
+#     }
+# }
 
 function Main {
     Write-Log "=============================================================================="
@@ -81,23 +82,14 @@ function Main {
     
     Write-Log "Connecting to HyperPod workspace: $workspaceName (connection key: $connectionKey)"
     
-    # Get fresh credentials
-    $apiResponse = Get-FreshCredentials -ConnectionKey $connectionKey
-    
-    # Parse connection URL
-    $connectionUrl = [System.Web.HttpUtility]::HtmlDecode($apiResponse.connection.url)
-    $uri = [System.Uri]$connectionUrl
-    $queryParams = [System.Web.HttpUtility]::ParseQueryString($uri.Query)
-    
-    $sessionId = $queryParams['sessionId']
-    $token = $queryParams['sessionToken'] -replace ' ', '+'
-    $streamUrl = [System.Web.HttpUtility]::UrlDecode($queryParams['streamUrl']) -replace ' ', '+'
-    
-    # Add cell-number if present (and fix spaces)
-    $cellNumber = $queryParams['cell-number']
-    if ($cellNumber) {
-        $cellNumberDecoded = [System.Web.HttpUtility]::UrlDecode($cellNumber) -replace ' ', '+'
-        $streamUrl += "&cell-number=$cellNumberDecoded"
+    # Use env vars directly for initial connection (deeplink), call API only for reconnection
+    if ($env:STREAM_URL -and $env:TOKEN) {
+        Write-Log "Using credentials from environment variables (initial connection)"
+        $streamUrl = $env:STREAM_URL
+        $token = $env:TOKEN
+    } else {
+        Write-Log "No env credentials available. Reconnection via get_hyperpod_session is disabled. Please reconnect from the IDE."
+        exit 1
     }
     
     # Extract region from stream URL

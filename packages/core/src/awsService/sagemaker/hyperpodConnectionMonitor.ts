@@ -5,7 +5,7 @@
 
 import { ChildProcess } from '../../shared/utilities/processUtils'
 import { getLogger } from '../../shared/logger/logger'
-import { HyperpodReconnectionManager } from './hyperpodReconnection'
+// import { HyperpodReconnectionManager } from './hyperpodReconnection'
 import { getHyperpodConnection } from './detached-server/hyperpodMappingUtils'
 
 interface ConnectionState {
@@ -120,7 +120,7 @@ export class HyperpodConnectionMonitor {
         )
 
         try {
-            await HyperpodReconnectionManager.getInstance().refreshCredentials(connectionKey)
+            // await HyperpodReconnectionManager.getInstance().refreshCredentials(connectionKey)
             state.reconnectAttempts = 0
             state.lastHealthCheck = Date.now()
         } catch (error) {

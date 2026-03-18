@@ -3,147 +3,150 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import * as sinon from 'sinon'
-import assert from 'assert'
-import { promises as fsPromises } from 'fs' // eslint-disable-line no-restricted-imports
-import { HyperpodReconnectionManager } from '../../../awsService/sagemaker/hyperpodReconnection'
+// NOTE: All tests in this file are commented out because they test HyperpodReconnectionManager
+// which depends on the getHyperpodSession API.
 
-describe('HyperpodReconnectionManager', function () {
-    const devspaceName = 'test-space'
-    const serverInfo = JSON.stringify({ port: 8080 })
+// import * as sinon from 'sinon'
+// import assert from 'assert'
+// import { promises as fsPromises } from 'fs' // eslint-disable-line no-restricted-imports
+// import { HyperpodReconnectionManager } from '../../../awsService/sagemaker/hyperpodReconnection'
 
-    const createSuccessResponse = () => ({
-        ok: true,
-        status: 200,
-        statusText: 'OK',
-        json: async () => ({ status: 'success' }),
-    })
+// describe('HyperpodReconnectionManager', function () {
+//     const devspaceName = 'test-space'
+//     const serverInfo = JSON.stringify({ port: 8080 })
 
-    let sandbox: sinon.SinonSandbox
-    let manager: HyperpodReconnectionManager
-    let fetchStub: sinon.SinonStub
-    let readStub: sinon.SinonStub
-    let clock: sinon.SinonFakeTimers
+//     const createSuccessResponse = () => ({
+//         ok: true,
+//         status: 200,
+//         statusText: 'OK',
+//         json: async () => ({ status: 'success' }),
+//     })
 
-    beforeEach(function () {
-        sandbox = sinon.createSandbox()
-        clock = sandbox.useFakeTimers()
-        manager = HyperpodReconnectionManager.getInstance()
-        fetchStub = sandbox.stub(globalThis as any, 'fetch')
-        readStub = sandbox.stub(fsPromises, 'readFile')
-        manager.clearReconnection(devspaceName)
-    })
+//     let sandbox: sinon.SinonSandbox
+//     let manager: HyperpodReconnectionManager
+//     let fetchStub: sinon.SinonStub
+//     let readStub: sinon.SinonStub
+//     let clock: sinon.SinonFakeTimers
 
-    afterEach(function () {
-        sandbox.restore()
-        manager.clearReconnection(devspaceName)
-    })
+//     beforeEach(function () {
+//         sandbox = sinon.createSandbox()
+//         clock = sandbox.useFakeTimers()
+//         manager = HyperpodReconnectionManager.getInstance()
+//         fetchStub = sandbox.stub(globalThis as any, 'fetch')
+//         readStub = sandbox.stub(fsPromises, 'readFile')
+//         manager.clearReconnection(devspaceName)
+//     })
 
-    it('returns singleton instance', function () {
-        assert.strictEqual(
-            HyperpodReconnectionManager.getInstance(),
-            HyperpodReconnectionManager.getInstance(),
-            'expected singleton instance to be reused'
-        )
-    })
+//     afterEach(function () {
+//         sandbox.restore()
+//         manager.clearReconnection(devspaceName)
+//     })
 
-    describe('scheduleReconnection', function () {
-        beforeEach(function () {
-            readStub.resolves(serverInfo)
-            fetchStub.resolves(createSuccessResponse())
-        })
+//     it('returns singleton instance', function () {
+//         assert.strictEqual(
+//             HyperpodReconnectionManager.getInstance(),
+//             HyperpodReconnectionManager.getInstance(),
+//             'expected singleton instance to be reused'
+//         )
+//     })
 
-        it('schedules with default 15-minute interval', async function () {
-            const intervalSpy = sandbox.spy(clock, 'setInterval')
+//     describe('scheduleReconnection', function () {
+//         beforeEach(function () {
+//             readStub.resolves(serverInfo)
+//             fetchStub.resolves(createSuccessResponse())
+//         })
 
-            manager.scheduleReconnection(devspaceName)
+//         it('schedules with default 15-minute interval', async function () {
+//             const intervalSpy = sandbox.spy(clock, 'setInterval')
 
-            sinon.assert.calledOnce(intervalSpy)
-            assert.strictEqual(intervalSpy.firstCall.args[1], 15 * 60 * 1000)
-        })
+//             manager.scheduleReconnection(devspaceName)
 
-        it('schedules with custom interval', async function () {
-            manager.scheduleReconnection(devspaceName, 0.01)
+//             sinon.assert.calledOnce(intervalSpy)
+//             assert.strictEqual(intervalSpy.firstCall.args[1], 15 * 60 * 1000)
+//         })
 
-            await clock.tickAsync(600)
+//         it('schedules with custom interval', async function () {
+//             manager.scheduleReconnection(devspaceName, 0.01)
 
-            sinon.assert.calledOnce(fetchStub)
-        })
+//             await clock.tickAsync(600)
 
-        it('clears existing timer before scheduling new one', async function () {
-            const clearIntervalSpy = sandbox.spy(clock, 'clearInterval')
+//             sinon.assert.calledOnce(fetchStub)
+//         })
 
-            manager.scheduleReconnection(devspaceName, 0.02)
-            manager.scheduleReconnection(devspaceName, 0.01)
+//         it('clears existing timer before scheduling new one', async function () {
+//             const clearIntervalSpy = sandbox.spy(clock, 'clearInterval')
 
-            sinon.assert.calledOnce(clearIntervalSpy)
+//             manager.scheduleReconnection(devspaceName, 0.02)
+//             manager.scheduleReconnection(devspaceName, 0.01)
 
-            await clock.tickAsync(1200)
-            sinon.assert.callCount(fetchStub, 2)
-        })
-    })
+//             sinon.assert.calledOnce(clearIntervalSpy)
 
-    describe('clearReconnection', function () {
-        it('prevents scheduled calls', async function () {
-            readStub.resolves(serverInfo)
-            fetchStub.resolves(createSuccessResponse())
+//             await clock.tickAsync(1200)
+//             sinon.assert.callCount(fetchStub, 2)
+//         })
+//     })
 
-            manager.scheduleReconnection(devspaceName, 0.005)
-            manager.clearReconnection(devspaceName)
+//     describe('clearReconnection', function () {
+//         it('prevents scheduled calls', async function () {
+//             readStub.resolves(serverInfo)
+//             fetchStub.resolves(createSuccessResponse())
 
-            await clock.tickAsync(1000)
+//             manager.scheduleReconnection(devspaceName, 0.005)
+//             manager.clearReconnection(devspaceName)
 
-            sinon.assert.notCalled(fetchStub)
-        })
+//             await clock.tickAsync(1000)
 
-        it('handles non-existent timer gracefully', function () {
-            assert.doesNotThrow(() => manager.clearReconnection('unknown'))
-        })
-    })
+//             sinon.assert.notCalled(fetchStub)
+//         })
 
-    describe('refreshCredentials', function () {
-        it('successfully refreshes credentials', async function () {
-            readStub.resolves(serverInfo)
-            fetchStub.resolves(createSuccessResponse())
+//         it('handles non-existent timer gracefully', function () {
+//             assert.doesNotThrow(() => manager.clearReconnection('unknown'))
+//         })
+//     })
 
-            await manager.refreshCredentials(devspaceName)
+//     describe('refreshCredentials', function () {
+//         it('successfully refreshes credentials', async function () {
+//             readStub.resolves(serverInfo)
+//             fetchStub.resolves(createSuccessResponse())
 
-            sinon.assert.calledOnce(readStub)
-            sinon.assert.calledOnceWithExactly(
-                fetchStub,
-                'http://localhost:8080/get_hyperpod_session?connection_key=test-space'
-            )
-        })
+//             await manager.refreshCredentials(devspaceName)
 
-        it('throws on file read error', async function () {
-            readStub.rejects(new Error('File not found'))
+//             sinon.assert.calledOnce(readStub)
+//             sinon.assert.calledOnceWithExactly(
+//                 fetchStub,
+//                 'http://localhost:8080/get_hyperpod_session?connection_key=test-space'
+//             )
+//         })
 
-            await assert.rejects(manager.refreshCredentials(devspaceName), /File not found/)
-        })
+//         it('throws on file read error', async function () {
+//             readStub.rejects(new Error('File not found'))
 
-        it('throws on API failure', async function () {
-            readStub.resolves(serverInfo)
-            fetchStub.resolves({ ok: false, status: 500, statusText: 'Server Error' } as any)
+//             await assert.rejects(manager.refreshCredentials(devspaceName), /File not found/)
+//         })
 
-            await assert.rejects(manager.refreshCredentials(devspaceName), /API call failed: 500/)
-        })
+//         it('throws on API failure', async function () {
+//             readStub.resolves(serverInfo)
+//             fetchStub.resolves({ ok: false, status: 500, statusText: 'Server Error' } as any)
 
-        it('throws on API error response', async function () {
-            readStub.resolves(serverInfo)
-            fetchStub.resolves({
-                ok: true,
-                status: 200,
-                statusText: 'OK',
-                json: async () => ({ status: 'error', message: 'Auth failed' }),
-            } as any)
+//             await assert.rejects(manager.refreshCredentials(devspaceName), /API call failed: 500/)
+//         })
 
-            await assert.rejects(manager.refreshCredentials(devspaceName), /Auth failed/)
-        })
+//         it('throws on API error response', async function () {
+//             readStub.resolves(serverInfo)
+//             fetchStub.resolves({
+//                 ok: true,
+//                 status: 200,
+//                 statusText: 'OK',
+//                 json: async () => ({ status: 'error', message: 'Auth failed' }),
+//             } as any)
 
-        it('throws on malformed JSON', async function () {
-            readStub.resolves('invalid json')
+//             await assert.rejects(manager.refreshCredentials(devspaceName), /Auth failed/)
+//         })
 
-            await assert.rejects(manager.refreshCredentials(devspaceName), /Unexpected token/)
-        })
-    })
-})
+//         it('throws on malformed JSON', async function () {
+//             readStub.resolves('invalid json')
+
+//             await assert.rejects(manager.refreshCredentials(devspaceName), /Unexpected token/)
+//         })
+//     })
+// })

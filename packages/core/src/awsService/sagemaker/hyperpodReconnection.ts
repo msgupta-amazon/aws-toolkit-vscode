@@ -3,94 +3,96 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { getLogger } from '../../shared/logger/logger'
-import { promises as fs } from 'fs' // eslint-disable-line no-restricted-imports
-import * as vscode from 'vscode'
-import globals from '../../shared/extensionGlobals'
-import { removeKnownHost } from './utils'
-import { getHyperpodConnection } from './detached-server/hyperpodMappingUtils'
+// NOTE: All code in this file is commented out because it depends on the getHyperpodSession API.
 
-export class HyperpodReconnectionManager {
-    private static instance: HyperpodReconnectionManager
-    private timers = new Map<string, NodeJS.Timeout>()
+// import { getLogger } from '../../shared/logger/logger'
+// import { promises as fs } from 'fs' // eslint-disable-line no-restricted-imports
+// import * as vscode from 'vscode'
+// import globals from '../../shared/extensionGlobals'
+// import { removeKnownHost } from './utils'
+// import { getHyperpodConnection } from './detached-server/hyperpodMappingUtils'
 
-    static getInstance(): HyperpodReconnectionManager {
-        if (!HyperpodReconnectionManager.instance) {
-            HyperpodReconnectionManager.instance = new HyperpodReconnectionManager()
-        }
-        return HyperpodReconnectionManager.instance
-    }
+// export class HyperpodReconnectionManager {
+//     private static instance: HyperpodReconnectionManager
+//     private timers = new Map<string, NodeJS.Timeout>()
 
-    scheduleReconnection(connectionKey: string, intervalMinutes: number = 12): void {
-        this.clearReconnection(connectionKey)
+//     static getInstance(): HyperpodReconnectionManager {
+//         if (!HyperpodReconnectionManager.instance) {
+//             HyperpodReconnectionManager.instance = new HyperpodReconnectionManager()
+//         }
+//         return HyperpodReconnectionManager.instance
+//     }
 
-        const timer = setInterval(
-            () => {
-                this.refreshCredentials(connectionKey).catch((error) => {
-                    getLogger().error(`Credential refresh failed for ${connectionKey}: ${error}`)
-                    if (error.message?.includes('Connection mapping not found')) {
-                        this.clearReconnection(connectionKey)
-                    }
-                })
-            },
-            intervalMinutes * 60 * 1000
-        )
+//     scheduleReconnection(connectionKey: string, intervalMinutes: number = 12): void {
+//         this.clearReconnection(connectionKey)
 
-        this.timers.set(connectionKey, timer)
-    }
+//         const timer = setInterval(
+//             () => {
+//                 this.refreshCredentials(connectionKey).catch((error) => {
+//                     getLogger().error(`Credential refresh failed for ${connectionKey}: ${error}`)
+//                     if (error.message?.includes('Connection mapping not found')) {
+//                         this.clearReconnection(connectionKey)
+//                     }
+//                 })
+//             },
+//             intervalMinutes * 60 * 1000
+//         )
 
-    clearReconnection(connectionKey: string): void {
-        const timer = this.timers.get(connectionKey)
-        if (timer) {
-            clearInterval(timer)
-            this.timers.delete(connectionKey)
-        }
-    }
+//         this.timers.set(connectionKey, timer)
+//     }
 
-    async refreshCredentials(connectionKey: string): Promise<void> {
-        try {
-            const connectionMapping = await getHyperpodConnection(connectionKey)
-            const [space, ns, cluster] = connectionKey.split(':')
-            const hostname = `smhp_${space}_${ns}_${cluster}_${connectionMapping?.region}_${connectionMapping?.accountId}`
-            await removeKnownHost(hostname)
+//     clearReconnection(connectionKey: string): void {
+//         const timer = this.timers.get(connectionKey)
+//         if (timer) {
+//             clearInterval(timer)
+//             this.timers.delete(connectionKey)
+//         }
+//     }
 
-            const serverInfoPath = vscode.Uri.joinPath(
-                globals.context.globalStorageUri,
-                'sagemaker-local-server-info.json'
-            ).fsPath
+//     async refreshCredentials(connectionKey: string): Promise<void> {
+//         try {
+//             const connectionMapping = await getHyperpodConnection(connectionKey)
+//             const [space, ns, cluster] = connectionKey.split(':')
+//             const hostname = `smhp_${space}_${ns}_${cluster}_${connectionMapping?.region}_${connectionMapping?.accountId}`
+//             await removeKnownHost(hostname)
 
-            const serverInfoContent = await fs.readFile(serverInfoPath, 'utf8')
-            const serverInfo = JSON.parse(serverInfoContent)
+//             const serverInfoPath = vscode.Uri.joinPath(
+//                 globals.context.globalStorageUri,
+//                 'sagemaker-local-server-info.json'
+//             ).fsPath
 
-            const keyParts = connectionKey.split(':')
-            if (keyParts.length !== 3) {
-                getLogger().warn(
-                    `Using legacy connection key format: ${connectionKey}. This may cause issues with multiple namespaces.`
-                )
-            }
+//             const serverInfoContent = await fs.readFile(serverInfoPath, 'utf8')
+//             const serverInfo = JSON.parse(serverInfoContent)
 
-            const port = parseInt(serverInfo.port, 10)
-            if (isNaN(port) || port < 1 || port > 65535) {
-                throw new Error('Invalid port number in server info')
-            }
+//             const keyParts = connectionKey.split(':')
+//             if (keyParts.length !== 3) {
+//                 getLogger().warn(
+//                     `Using legacy connection key format: ${connectionKey}. This may cause issues with multiple namespaces.`
+//                 )
+//             }
 
-            const apiUrl = `http://localhost:${port}/get_hyperpod_session?connection_key=${encodeURIComponent(connectionKey)}`
-            const response = await fetch(apiUrl)
+//             const port = parseInt(serverInfo.port, 10)
+//             if (isNaN(port) || port < 1 || port > 65535) {
+//                 throw new Error('Invalid port number in server info')
+//             }
 
-            if (!response.ok) {
-                if (response.status === 404) {
-                    throw new Error(`Connection mapping not found for ${connectionKey}. Please reconnect manually.`)
-                }
-                throw new Error(`API call failed: ${response.status} - ${response.statusText}`)
-            }
+//             const apiUrl = `http://localhost:${port}/get_hyperpod_session?connection_key=${encodeURIComponent(connectionKey)}`
+//             const response = await fetch(apiUrl)
 
-            const data = await response.json()
-            if (data.status !== 'success') {
-                throw new Error(data.message || 'Unknown API error')
-            }
-        } catch (error) {
-            getLogger().error(`Failed to refresh credentials for ${connectionKey}: ${error}`)
-            throw error
-        }
-    }
-}
+//             if (!response.ok) {
+//                 if (response.status === 404) {
+//                     throw new Error(`Connection mapping not found for ${connectionKey}. Please reconnect manually.`)
+//                 }
+//                 throw new Error(`API call failed: ${response.status} - ${response.statusText}`)
+//             }
+
+//             const data = await response.json()
+//             if (data.status !== 'success') {
+//                 throw new Error(data.message || 'Unknown API error')
+//             }
+//         } catch (error) {
+//             getLogger().error(`Failed to refresh credentials for ${connectionKey}: ${error}`)
+//             throw error
+//         }
+//     }
+// }
