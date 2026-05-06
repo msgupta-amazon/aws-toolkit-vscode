@@ -101,14 +101,14 @@ describe('handleGetHyperpodSession', function () {
         sinon.assert.calledWith(res.end, sinon.match('Missing EKS cluster metadata'))
     })
 
-    it('returns 200 with session info on successful workspace connection', async function () {
+    it('returns 200 with parsed session info from presigned URL', async function () {
         readMappingStub.resolves(validMapping)
 
         const fakeConnection = {
             type: 'vscode-remote',
-            url: 'wss://stream.example.com/session123',
-            token: 'session-token-value',
-            sessionId: 'session-123',
+            url: 'vscode://amazonwebservices.aws-toolkit-vscode/connect/workspace?sessionId=session-123&sessionToken=session-token-value&streamUrl=wss%3A%2F%2Fstream.example.com%2Fsession123&workspaceName=my-space&namespace=my-ns',
+            token: '',
+            sessionId: '',
         }
         const createConnectionStub = sinon.stub(
             kubectlClientStubModule.KubectlClient.prototype,
@@ -124,6 +124,28 @@ describe('handleGetHyperpodSession', function () {
         assert.strictEqual(responseBody.SessionId, 'session-123')
         assert.strictEqual(responseBody.StreamUrl, 'wss://stream.example.com/session123')
         assert.strictEqual(responseBody.TokenValue, 'session-token-value')
+    })
+
+    it('returns 500 when presigned URL is missing required params', async function () {
+        readMappingStub.resolves(validMapping)
+
+        const fakeConnection = {
+            type: 'vscode-remote',
+            url: 'vscode://amazonwebservices.aws-toolkit-vscode/connect/workspace?workspaceName=my-space',
+            token: '',
+            sessionId: '',
+        }
+        const createConnectionStub = sinon.stub(
+            kubectlClientStubModule.KubectlClient.prototype,
+            'createWorkspaceConnection'
+        )
+        createConnectionStub.resolves(fakeConnection)
+
+        const req = createMockRequest('?connection_key=my-space:my-ns:my-cluster')
+        await handleGetHyperpodSession(req, res as unknown as ServerResponse)
+
+        sinon.assert.calledWith(res.writeHead, 500)
+        sinon.assert.calledWith(res.end, sinon.match('Failed to parse workspace connection URL'))
     })
 
     it('returns 500 when createWorkspaceConnection fails', async function () {
@@ -187,9 +209,9 @@ describe('handleGetHyperpodSession', function () {
         )
         createConnectionStub.resolves({
             type: 'vscode-remote',
-            url: 'wss://stream.example.com',
-            token: 'tok',
-            sessionId: 'sid',
+            url: 'vscode://amazonwebservices.aws-toolkit-vscode/connect/workspace?sessionId=sid&sessionToken=tok&streamUrl=wss%3A%2F%2Fstream.example.com',
+            token: '',
+            sessionId: '',
         })
 
         const req = createMockRequest('?connection_key=my-space:my-ns:my-cluster')
